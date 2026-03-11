@@ -17,6 +17,20 @@ async function hasContactStatusColumn(): Promise<boolean> {
   return _hasContactStatus;
 }
 
+// Cache whether contact_email column exists
+let _hasContactEmail: boolean | null = null;
+
+export async function hasContactEmailColumn(): Promise<boolean> {
+  if (_hasContactEmail !== null) return _hasContactEmail;
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from("companies")
+    .select("contact_email")
+    .limit(1);
+  _hasContactEmail = !error;
+  return _hasContactEmail;
+}
+
 // ─── Column sets (with/without contact_status) ──────────────────
 // NOTE: These are defined as separate constant strings (not concatenated)
 // because the Supabase client parses select strings at the type level.
@@ -25,11 +39,17 @@ const LIST_COLS = "id, company_name, domain, normalized_url, provincia, localida
 
 const LIST_COLS_WITH_CS = "id, company_name, domain, normalized_url, provincia, localidad, cnae_description, phone_from_csv, sector, business_type, company_size_signal, cms_platform, priority_score, outreach_tier, scored_at, contact_status, has_contact_form, has_phone_number, has_ecommerce, has_analytics, has_ssl, improvement_potential, notable_weaknesses, tier1_status, tier2_status";
 
+const LIST_COLS_WITH_EMAIL = "id, company_name, domain, normalized_url, provincia, localidad, cnae_description, phone_from_csv, contact_email, sector, business_type, company_size_signal, cms_platform, priority_score, outreach_tier, scored_at, has_contact_form, has_phone_number, has_ecommerce, has_analytics, has_ssl, improvement_potential, notable_weaknesses, tier1_status, tier2_status";
+
+const LIST_COLS_WITH_CS_EMAIL = "id, company_name, domain, normalized_url, provincia, localidad, cnae_description, phone_from_csv, contact_email, sector, business_type, company_size_signal, cms_platform, priority_score, outreach_tier, scored_at, contact_status, has_contact_form, has_phone_number, has_ecommerce, has_analytics, has_ssl, improvement_potential, notable_weaknesses, tier1_status, tier2_status";
+
 const CARD_COLS = "id, company_name, domain, priority_score, outreach_tier, sector, provincia, phone_from_csv";
 
 const CARD_COLS_WITH_CS = "id, company_name, domain, priority_score, outreach_tier, sector, provincia, phone_from_csv, contact_status";
 
 const DETAIL_COLS = "id, company_name, domain, normalized_url, raw_url, provincia, localidad, cnae_code, cnae_description, phone_from_csv, sector, business_type, company_size_signal, cms_platform, priority_score, outreach_tier, scored_at, has_contact_form, has_phone_number, has_ecommerce, has_analytics, has_ssl, improvement_potential, notable_weaknesses, tier1_status, tier2_status, tier3_status, is_reachable, http_status, response_time_ms, page_size_kb, detected_language, has_mobile_viewport, has_cta_button, has_social_links, has_chat_widget, geographic_focus, value_prop_clarity, cta_quality, content_quality, trust_signals_count, has_testimonials, has_case_studies, has_pricing, has_blog, has_faq, has_booking_system, target_audience, ingested_at, tier1_completed_at, tier2_completed_at, last_error";
+
+const DETAIL_COLS_WITH_EMAIL = "id, company_name, domain, normalized_url, raw_url, provincia, localidad, cnae_code, cnae_description, phone_from_csv, contact_email, sector, business_type, company_size_signal, cms_platform, priority_score, outreach_tier, scored_at, has_contact_form, has_phone_number, has_ecommerce, has_analytics, has_ssl, improvement_potential, notable_weaknesses, tier1_status, tier2_status, tier3_status, is_reachable, http_status, response_time_ms, page_size_kb, detected_language, has_mobile_viewport, has_cta_button, has_social_links, has_chat_widget, geographic_focus, value_prop_clarity, cta_quality, content_quality, trust_signals_count, has_testimonials, has_case_studies, has_pricing, has_blog, has_faq, has_booking_system, target_audience, ingested_at, tier1_completed_at, tier2_completed_at, last_error";
 
 // ─── Dashboard Queries ───────────────────────────────────────────
 
@@ -128,11 +148,19 @@ export async function getCompanies(
   pagination: PaginationParams
 ): Promise<{ data: Company[]; total: number }> {
   const supabase = createServerClient();
-  const hasCsCol = await hasContactStatusColumn();
+  const [hasCsCol, hasEmailCol] = await Promise.all([
+    hasContactStatusColumn(),
+    hasContactEmailColumn(),
+  ]);
+
+  const cols: string = hasCsCol && hasEmailCol ? LIST_COLS_WITH_CS_EMAIL
+    : hasCsCol ? LIST_COLS_WITH_CS
+    : hasEmailCol ? LIST_COLS_WITH_EMAIL
+    : LIST_COLS;
 
   let query = supabase
     .from("companies")
-    .select(hasCsCol ? LIST_COLS_WITH_CS : LIST_COLS, { count: "exact" });
+    .select(cols, { count: "exact" });
 
   // Apply filters
   if (filters.outreach_tier?.length) {
@@ -174,6 +202,13 @@ export async function getCompanies(
   if (filters.has_ssl !== undefined) {
     query = query.eq("has_ssl", filters.has_ssl);
   }
+  if (filters.has_email !== undefined && hasEmailCol) {
+    if (filters.has_email) {
+      query = query.not("contact_email", "is", null).neq("contact_email" as string, "");
+    } else {
+      query = query.or("contact_email.is.null,contact_email.eq.");
+    }
+  }
   if (filters.contact_status && hasCsCol) {
     query = query.eq("contact_status", filters.contact_status);
   }
@@ -209,11 +244,19 @@ export async function getCompanies(
 
 export async function getCompanyById(id: string): Promise<Company | null> {
   const supabase = createServerClient();
-  const hasCsCol = await hasContactStatusColumn();
+  const [hasCsCol, hasEmailCol] = await Promise.all([
+    hasContactStatusColumn(),
+    hasContactEmailColumn(),
+  ]);
+
+  // Use * when both optional columns exist, otherwise pick the right set
+  const detailCols: string = (hasCsCol && hasEmailCol) ? "*"
+    : hasEmailCol ? DETAIL_COLS_WITH_EMAIL
+    : DETAIL_COLS;
 
   const { data, error } = await supabase
     .from("companies")
-    .select(hasCsCol ? "*" : DETAIL_COLS)
+    .select(detailCols)
     .eq("id", id)
     .single();
 
@@ -416,7 +459,32 @@ export async function getAnalyticsData() {
   const sizeDist = [...sizeMap.entries()]
     .map(([name, { count, totalScore }]) => ({ name, count, avgScore: Math.round(totalScore / count) }));
 
-  return { topSectors, byProvincia, cmsDist, topWeaknesses, sizeDist };
+  // Email distribution (only if column exists)
+  let emailDist: { name: string; count: number }[] = [];
+  const hasEmailCol = await hasContactEmailColumn();
+  if (hasEmailCol) {
+    const [withRes, totalScoredRes] = await Promise.all([
+      supabase
+        .from("companies")
+        .select("*", { count: "exact", head: true })
+        .not("contact_email", "is", null)
+        .neq("contact_email" as string, "")
+        .not("priority_score", "is", null),
+      supabase
+        .from("companies")
+        .select("*", { count: "exact", head: true })
+        .not("priority_score", "is", null),
+    ]);
+
+    const withEmail = withRes.count ?? 0;
+    const totalScored = totalScoredRes.count ?? 0;
+    emailDist = [
+      { name: "With Email", count: withEmail },
+      { name: "Without Email", count: totalScored - withEmail },
+    ];
+  }
+
+  return { topSectors, byProvincia, cmsDist, topWeaknesses, sizeDist, emailDist };
 }
 
 // ─── Outreach Queries ────────────────────────────────────────────

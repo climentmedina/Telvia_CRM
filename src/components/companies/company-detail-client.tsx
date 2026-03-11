@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ExternalLink,
   Phone,
+  Mail,
   Globe,
   Shield,
   Smartphone,
@@ -70,6 +71,7 @@ export function CompanyDetailClient({ company, analysis, similar }: Props) {
     { icon: Smartphone, label: "Mobile Viewport", value: company.has_mobile_viewport, type: "bool" },
     { icon: MessageSquare, label: "Contact Form", value: company.has_contact_form, type: "bool" },
     { icon: Phone, label: "Phone on Site", value: company.has_phone_number, type: "bool" },
+    { icon: Mail, label: "Email Available", value: !!company.contact_email, type: "bool" },
     { icon: Award, label: "CTA Button", value: company.has_cta_button, type: "bool" },
     { icon: Share2, label: "Social Links", value: company.has_social_links, type: "bool" },
     { icon: Bot, label: "Chat Widget", value: company.has_chat_widget, type: "bool" },
@@ -140,6 +142,14 @@ export function CompanyDetailClient({ company, analysis, similar }: Props) {
               onClick={() => navigator.clipboard.writeText(company.phone_from_csv!)}
             >
               <Phone className="mr-2 h-4 w-4" /> {company.phone_from_csv}
+            </Button>
+          )}
+          {company.contact_email && (
+            <Button
+              variant="outline"
+              onClick={() => navigator.clipboard.writeText(company.contact_email!)}
+            >
+              <Mail className="mr-2 h-4 w-4" /> {company.contact_email}
             </Button>
           )}
         </div>

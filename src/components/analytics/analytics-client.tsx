@@ -22,6 +22,7 @@ interface Analytics {
   cmsDist: { name: string; count: number }[];
   topWeaknesses: { name: string; count: number }[];
   sizeDist: { name: string; count: number; avgScore: number }[];
+  emailDist: { name: string; count: number }[];
 }
 
 interface Metrics {
@@ -173,6 +174,48 @@ export function AnalyticsClient({ analytics, distribution, metrics }: Props) {
             </div>
           </CardContent>
         </Card>
+
+        {/* Email Availability */}
+        {analytics.emailDist.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Email Availability</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={analytics.emailDist}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={130}
+                      label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
+                      labelLine={{ stroke: "var(--color-muted-foreground)" }}
+                      onClick={(_, index) => {
+                        if (index === 0) goToCompanies({ has_email: "true" });
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Cell fill="#10b981" />
+                      <Cell fill="#94a3b8" />
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "var(--color-popover)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Weakness Frequency */}
         <Card>

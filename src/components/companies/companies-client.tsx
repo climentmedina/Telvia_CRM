@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   ExternalLink,
   Phone,
+  Mail,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -139,7 +140,7 @@ export function CompaniesClient({ companies, total, filters, pagination, filterO
 
   const exportCSV = () => {
     const rows = companies.filter((c) => selected.size === 0 || selected.has(c.id));
-    const headers = ["company_name", "domain", "provincia", "sector", "business_type", "priority_score", "outreach_tier", "phone_from_csv", "cms_platform"];
+    const headers = ["company_name", "domain", "provincia", "sector", "business_type", "priority_score", "outreach_tier", "phone_from_csv", "contact_email", "cms_platform"];
     const csv = [
       headers.join(","),
       ...rows.map((r) =>
@@ -171,6 +172,7 @@ export function CompaniesClient({ companies, total, filters, pagination, filterO
     filters.score_max ||
     filters.has_contact_form ||
     filters.has_phone_number ||
+    filters.has_email ||
     filters.has_ecommerce ||
     filters.contact_status
   );
@@ -402,6 +404,7 @@ export function CompaniesClient({ companies, total, filters, pagination, filterO
               {([
                 ["has_contact_form", "Contact Form"],
                 ["has_phone", "Phone"],
+                ["has_email", "Email"],
                 ["has_ecommerce", "E-commerce"],
                 ["has_analytics", "Analytics"],
                 ["has_ssl", "SSL"],
@@ -530,6 +533,15 @@ export function CompaniesClient({ companies, total, filters, pagination, filterO
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
+                    )}
+                    {company.contact_email && (
+                      <button
+                        className="rounded p-1 hover:bg-accent"
+                        title={`Copy: ${company.contact_email}`}
+                        onClick={() => navigator.clipboard.writeText(company.contact_email!)}
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                      </button>
                     )}
                     {company.phone_from_csv && (
                       <button

@@ -28,6 +28,7 @@ export default async function CompaniesPage({ searchParams }: Props) {
   if (params.has_ecommerce === "true") filters.has_ecommerce = true;
   if (params.has_analytics === "true") filters.has_analytics = true;
   if (params.has_ssl === "true") filters.has_ssl = true;
+  if (params.has_email === "true") filters.has_email = true;
   if (params.contact_status) filters.contact_status = params.contact_status as ContactStatus;
   if (params.search) filters.search = params.search as string;
 

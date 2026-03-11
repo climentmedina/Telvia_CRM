@@ -66,6 +66,9 @@ export interface Company {
 
   // Contact tracking (local CRM layer)
   contact_status: ContactStatus | null;
+
+  // Email address (scraped from website)
+  contact_email: string | null;
 }
 
 export interface AnalysisResult {
@@ -128,6 +131,7 @@ export interface CompanyFilters {
   has_ecommerce?: boolean;
   has_analytics?: boolean;
   has_ssl?: boolean;
+  has_email?: boolean;
   contact_status?: ContactStatus;
   search?: string;
 }
